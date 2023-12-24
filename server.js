@@ -1,152 +1,117 @@
-const express = require('express');
+const express =require('express');
+
+
+
+
 const app = express();
 
-const axios =require('axios');
 const cors = require('cors');
-const { log } = require('console');
+
+const axios = require('axios')
+const bodyParser = require('body-parser')
+const Port = process.env.PORT || 3000;
 
 app.use(cors());
 
-app.get('/',async(req,res)=>{
+app.use(bodyParser.urlencoded({extended:true}));
+app.use(bodyParser.json());
 
-    // const axios = require('axios');
+app.post('/',async (req,res)=>{
 
-// const options = {
-//   method: 'GET',
-//   url: 'https://tripadvisor16.p.rapidapi.com/api/v1/flights/searchFlights',
-//   params: {
-//     sourceAirportCode: 'BOM',
-//     destinationAirportCode: 'DEL',
-//     date: '2023-12-20',
-//     itineraryType: 'ONE_WAY',
-//     sortOrder: 'PRICE',
-//     numAdults: '1',
-//     numSeniors: '0',
-//     classOfService: 'ECONOMY',
-//     pageNumber: '1',
-//     currencyCode: 'INR'
-//   },
-//   headers: {
-//     'X-RapidAPI-Key': '7c32c9e1ecmshe2440211bb42e4ep17e2ffjsn7d83a812a823',
-//     'X-RapidAPI-Host': 'tripadvisor16.p.rapidapi.com'
-//   }
-// };
-// const URL = 'https://tripadvisor16.p.rapidapi.com/api/v1/flights/searchFlights'
-// const options2 = {
-//   params: {
-//     sourceAirportCode: 'BOM',
-//     destinationAirportCode: 'DEL',
-//     date: '2023-12-20',
-//     itineraryType: 'ONE_WAY',
-//     sortOrder: 'PRICE',
-//     numAdults: '1',
-//     numSeniors: '0',
-//     classOfService: 'ECONOMY',
-//     pageNumber: '1',
-//     currencyCode: 'INR'
-//   },
-//   headers: {
-//     'X-RapidAPI-Key': '7c32c9e1ecmshe2440211bb42e4ep17e2ffjsn7d83a812a823',
-//     'X-RapidAPI-Host': 'tripadvisor16.p.rapidapi.com'
-//   }
-// }
+  console.log("get");
 
-// try {
-//     const response = await axios.request(options);
-//     console.log(response.data);
-//     response.data.data.flights.forEach(item=>{
-//         console.log(item);
-//     })
-//     res.json(response.data)
-// } catch (error) {
-//     console.error(error);
-//     res.send(error)
-// }
+    const {flyTo,flyFrom,departingDate,travelClass,adultsNum,childNum}=req.body;
+    console.log(req.body);
 
-axios.request(options).then(data=>{
-  console.log(data.data.flights);
+    const options = {
+      method: 'GET',
+      url: 'https://tripadvisor16.p.rapidapi.com/api/v1/flights/searchFlights',
+      params: {
+        sourceAirportCode: flyFrom,
+        destinationAirportCode: flyTo,
+        date: departingDate,
+        itineraryType: 'ONE_WAY',
+        sortOrder: 'PRICE',
+        numAdults: adultsNum,
+        numSeniors: childNum,
+        classOfService: travelClass,
+        pageNumber: '1',
+        currencyCode: 'INR'
+      },
+      headers: {
+        'X-RapidAPI-Key': '991b359669mshd0c10deb3b5ab7ap117f5ejsn4165a2913da6',
+        'X-RapidAPI-Host': 'tripadvisor16.p.rapidapi.com'
+      }
+    };
+
+    const flightFairOptions =  {
+      method: 'GET',
+      url: 'https://flight-fare-search.p.rapidapi.com/v2/flights/',
+      params: {
+        from: flyFrom,
+        to:flyTo,
+        date:departingDate,
+        adult: '1',
+        child:'2',
+        type: travelClass,
+        currency: 'INR'
+      },
+      headers: {
+
+        'X-RapidAPI-Key': '991b359669mshd0c10deb3b5ab7ap117f5ejsn4165a2913da6',
+        'X-RapidAPI-Host': 'flight-fare-search.p.rapidapi.com'
   
-  res.json(data.data.data.flights)
-}).catch(err=>{
-  console.log(err);
-})
+      }
 
-// axios.request(URL,{
-//   params:options2.params,
-//   headers:options2.headers
-// }).then(data=>{
-//   console.log(data);
-// }).catch(err=>{
-//   console.log(err);
-// })
+      
+    };
 
-//     const options = {
-//         methode:'GET',
-//         url:'https://iata-and-icao-codes.p.rapidapi.com/airlines',
-//         params:{
-//             iata_code:"{'8Y'}"
-//          },
-//         headers:{
-//             'X-RapidAPI-Key': '7c32c9e1ecmshe2440211bb42e4ep17e2ffjsn7d83a812a823',
-//             'X-RapidAPI-Host': 'iata-and-icao-codes.p.rapidapi.com'
-//         }
+      const response = await axios.request(options);
+      const flightFareResponse = await axios.request(flightFairOptions);
+      // console.log(response);
+      // console.log(response.data);
+      // res.json(response.data)
+
+      if(response.data.message ==='Success'){
+        console.log(flightFareResponse.data);
+
+        // res.json(flightFareResponse.data)
+
+        const filterFlightData = response.data.data.flights.map(item=>{
+           let dataObj={flightName:'',price:2121,depDate:'2023-12-6',arrivalDate:'2023-12-06',depCity:flyFrom,arrivalCity:flyTo}
+
+           dataObj.flightName = item.segments[0].legs[0].operatingCarrierCode.concat(item.segments[0].legs[0].flightNumber);
+           dataObj.price =item.purchaseLinks[0].totalPrice;
+           dataObj.depDate =  item.segments[0].legs[0].departureDateTime;
+           dataObj.arrivalDate = item.segments[0].legs[0].arrivalDateTime
+
+           if(flightFareResponse.data.results){
+           dataObj.depCity = flightFareResponse.data.results[0].departureAirport.city,
+           dataObj.arrivalCity = flightFareResponse.data.results[0].arrivalAirport.city
+           }
+          //  console.log(dataObj);
+           return dataObj
+        })
+        // console.log(filterFlightData);
        
-//     };
+        if(filterFlightData.length>0){
+            return res.json({message : 'success',data:filterFlightData});
+        }else{
+            res.json({message:'No Flights',data:[]});
+        }
 
-//     try{
-//         const response = await axios.request(options);
-//         console.log(response.data);
-//     }catch(error){
-//         console.log(error);
-//     }
-// })
-
-// app.get('/getfair',async(req,res)=>{
-// const options = {
-//   method: 'GET',
-//   url: 'https://tripadvisor16.p.rapidapi.com/api/v1/flights/getFilters',
-//   params: {
-//     sourceAirportCode: 'BOM',
-//     destinationAirportCode: 'DEL',
-//     date: '2023-12-22',
-//     itineraryType: 'ONE_WAY',
-//     classOfService: 'ECONOMY'
-//   },
-//   headers: {
-//     'X-RapidAPI-Key': '7c32c9e1ecmshe2440211bb42e4ep17e2ffjsn7d83a812a823',
-//     'X-RapidAPI-Host': 'tripadvisor16.p.rapidapi.com'
-//   }
-// };
-
-// try {
-//     const response = await axios.request(options);
-//     console.log(response.data);
-// } catch (error) {
-//     console.error(error);
-// }
-
-// const options = {
-//   method: 'POST',
-//   url: 'https://priceline-com.p.rapidapi.com/flights/LAX/SFO/2023-12-17',
-//   params: {adults: '1'},
-//   headers: {
-//     'X-RapidAPI-Key': '133921f45amshcaea80a9159ec51p13779cjsn6ef5df8113dd',
-//     'X-RapidAPI-Host': 'priceline-com.p.rapidapi.com'
-//   }
-// };
-
-// try {
-// 	const response = await axios.request(options);
-// 	console.log(response.data);
-//     res.send('data')
-// } catch (error) {
-// 	console.error("error",error);
-//     res.send('error')
-// }
+    }else{
+        res.json({message:'No Flights',data:[]});
+    }
 })
 
+// app.post('/',(req,res)=>{
+//   console.log(req.body);
+//   res.json({message:'success',data:[{flightName:'somename',price:2000},{flightName:'Othername',price:3000}]})
+// })
 
-const Port = process.env.PORT || 5500;
+
 app.listen(Port,()=>{
+
     console.log(`Server @${Port}`);
 })
